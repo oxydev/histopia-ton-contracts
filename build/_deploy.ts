@@ -62,7 +62,7 @@ async function main() {
   } else {
     console.log(` - Wallet balance is ${fromNano(walletBalance)} TON, which will be used for gas`);
   }
-
+  let ERA_CONTRACT_ADDRESS
   // go over all the contracts we have deploy scripts for
   const rootContracts = glob.sync(["build/*.deploy.ts"]);
   for (const rootContract of rootContracts) {
@@ -92,9 +92,11 @@ async function main() {
       process.exit(1);
     }
     const initCodeCell = Cell.fromBoc(JSON.parse(fs.readFileSync(hexArtifact).toString()).hex)[0];
-
     // make sure the contract was not already deployed
     const newContractAddress = contractAddress({ workchain, initialData: initDataCell, initialCode: initCodeCell });
+    if(rootContract.includes("jetton"))
+      ERA_CONTRACT_ADDRESS = newContractAddress
+
     console.log(` - Based on your init code+data, your new contract address is: ${newContractAddress.toFriendly()}`);
     if (await client.isContractDeployed(newContractAddress)) {
       console.log(` - Looks like the contract is already deployed in this address, skipping deployment`);

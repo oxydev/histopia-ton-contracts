@@ -10,7 +10,7 @@ import {createTestClient} from "ton/dist/tests/createTestClient";
 export const JETTON_WALLET_CODE = Cell.fromBoc(walletHex.hex)[0];
 export const JETTON_MINTER_CODE = Cell.fromBoc(minterHex.hex)[0]; // code cell from build output
 const DEPLOYER_WALLET_ADDRESS = "EQBmVo--5CGcB1YdclgIUvUY-949a0ivzC1Cw9_J3l7ayxnT";
-const HistopianNFTAddress = Address.parseFriendly("EQAu8Lwf5Bz-ST3ZH_V4lEkV4AQJZw-ay3a2iU49ddD01VX3").address;
+const HistopianNFTAddress = Address.parseFriendly("EQCmwzGNUeENM2UvmI6t3QXsufRkvWR2YUFMUEu9KfVO582y").address;
 
 const ONCHAIN_CONTENT_PREFIX = 0x00;
 const SNAKE_PREFIX = 0x00;
@@ -22,7 +22,7 @@ const jettonParams = {
   owner: Address.parse("EQBmVo--5CGcB1YdclgIUvUY-949a0ivzC1Cw9_J3l7ayxnT"),
   name: "Histopia",
   symbol: "ERA",
-  image: "https://www.linkpicture.com/q/download_183.png", // Image url
+  image: "https://histopia.io/logo.png", // Image url
   description: "Histopia is the First Open World MultiChain GameFi on TON Blockchain, where you can interact with other players, build your own empire, and earn real money.",
 };
 
@@ -161,8 +161,7 @@ async function mintHistopians(
   amount = 1,
   toAddress = Address.parseFriendly(DEPLOYER_WALLET_ADDRESS).address
 ) {
-  const HistopianNFTAddress = Address.parseFriendly("EQAu8Lwf5Bz-ST3ZH_V4lEkV4AQJZw-ay3a2iU49ddD01VX3").address;
-  const JettonWallet = Address.parseFriendly("kQD-yorGu7VRJu5phDqV57J4NY50_GKByYZxPxLbb3Y5GcTV").address;
+  const JettonWallet = Address.parseFriendly("kQC6lw8g6E2j8koYFRQL55gbT_k8VyEUz94cbGlN25weqHVs").address;
 
 
   const dict = beginDict(64);
@@ -204,16 +203,12 @@ async function mintERA(
 async function emptyCollection(
   walletContract: WalletContract,
   secretKey: Buffer,
-  contractAddress: Address,
-  toAddress = Address.parseFriendly(DEPLOYER_WALLET_ADDRESS).address
 ) {
-  const collection_jetton_wallet = Address.parseFriendly("kQA7VX5XYzVq7aNlw8-cBzQ9uAmiZNzTcZJLP7KQHu7TWwl2").address;
 
   const transferRef = beginCell().storeUint(4, 32).storeUint(0,64)
-    .storeAddress(collection_jetton_wallet).storeCoins(toNano(0.02)).storeCoins(toNano(0.1)).storeAddress(null).endCell();
-// collection jetton address should be removed todo
+    .storeCoins(toNano(0.04)).storeCoins(toNano(0.05)).storeAddress(null).endCell();
 
-  await sendInternalMessageWithWallet({ walletContract, secretKey, to: HistopianNFTAddress, value: toNano(0.04), body: transferRef })
+  await sendInternalMessageWithWallet({ walletContract, secretKey, to: HistopianNFTAddress, value: toNano(0.06), body: transferRef })
     .then((r) => console.log(r,`   # Sent 'deployNFT' op message`)).catch(e => console.log(e));
 
 }
@@ -224,8 +219,9 @@ export async function postDeployTest(
   secretKey: Buffer,
   contractAddress: Address
 ) {
+  // await mintERA(walletContract, secretKey, contractAddress, 1);
   // await mintHistopians(walletContract, secretKey, contractAddress, 6);
-  await emptyCollection(walletContract, secretKey, contractAddress);
+  await emptyCollection(walletContract, secretKey);
   // const call = await walletContract.client.callGetMethod(contractAddress, "get_jetton_data");
   //
   // console.log(

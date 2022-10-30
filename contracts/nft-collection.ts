@@ -18,7 +18,7 @@ export function data(params: CollectionStateInterface): Cell {
   dict.storeCell(5, beginCell().storeInt(101,64).endCell());
   dict.storeCell(6, beginCell().storeInt(101,64).endCell());
   console.log(params.content)
-  const era_minter = Address.parseFriendly("kQBJvVU2i_EYLME341AhUmUmIP9StZM9qtEf4W5wwaDsy8fX").address;
+  const era_minter = Address.parseFriendly("EQBRLa722aRcleQDsu-pGNp6ATSnVfvvS_GJxnFjzhQqYBdm").address;
   return beginCell()
           .storeAddress(params.owner_address)
           .storeUint(params.next_item_index, 64)
