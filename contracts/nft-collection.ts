@@ -25,7 +25,7 @@ export function data(params: CollectionStateInterface): Cell {
           .storeRef(params.content)
           .storeRef(params.nft_item_code)
           .storeRef(params.royalty_params)
-          .storeRef(beginCell().storeDict(dict.endDict()).storeRef(JETTON_WALLET_CODE).endCell())
+          .storeRef(beginCell().storeDict(dict.endDict()).storeRef(JETTON_WALLET_CODE).storeDict(beginDict(256).endDict()).endCell())
     .storeAddress(era_minter)
 
 

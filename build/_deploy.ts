@@ -56,7 +56,7 @@ async function main() {
   const walletContract = WalletContract.create(client, WalletV3R2Source.create({ publicKey: walletKey.publicKey, workchain }));
   console.log(` - Wallet address used to deploy from is: ${walletContract.address.toFriendly()}`);
   const walletBalance = await client.getBalance(walletContract.address);
-  if (walletBalance.lt(toNano(0.2))) {
+  if (walletBalance.lt(toNano(0.1))) {
     console.log(` - ERROR: Wallet has less than 0.2 TON for gas (${fromNano(walletBalance)} TON), please send some TON for gas first`);
     process.exit(1);
   } else {

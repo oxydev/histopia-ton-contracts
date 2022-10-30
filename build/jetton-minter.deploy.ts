@@ -10,7 +10,7 @@ import {createTestClient} from "ton/dist/tests/createTestClient";
 export const JETTON_WALLET_CODE = Cell.fromBoc(walletHex.hex)[0];
 export const JETTON_MINTER_CODE = Cell.fromBoc(minterHex.hex)[0]; // code cell from build output
 const DEPLOYER_WALLET_ADDRESS = "EQBmVo--5CGcB1YdclgIUvUY-949a0ivzC1Cw9_J3l7ayxnT";
-const HistopianNFTAddress = Address.parseFriendly("EQCmwzGNUeENM2UvmI6t3QXsufRkvWR2YUFMUEu9KfVO582y").address;
+const HistopianNFTAddress = Address.parseFriendly("EQAuwNUXU-JkEJEzD7q18ujIBH6MPkM3rcy0PucipH94YT2X").address;
 
 const ONCHAIN_CONTENT_PREFIX = 0x00;
 const SNAKE_PREFIX = 0x00;
@@ -180,6 +180,23 @@ async function mintHistopians(
 
 }
 
+// mint free
+async function mintFreeHistopian(
+  walletContract: WalletContract,
+  secretKey: Buffer,
+  contractAddress: Address,
+  toAddress = Address.parseFriendly(DEPLOYER_WALLET_ADDRESS).address
+) {
+
+  const transferRef = beginCell().storeUint(2, 32).storeUint(0,64)
+    .storeCoins(toNano(0.04))
+    .storeRef(beginCell().storeAddress(toAddress).endCell()).endCell();
+
+  await sendInternalMessageWithWallet({ walletContract, secretKey, to: HistopianNFTAddress, value: toNano((0.08).toFixed(8)), body: transferRef })
+    .then((r) => console.log(r,`   # Sent 'deployNFT' op message`)).catch(e => console.log(e));
+
+}
+
 // multiple mint Histopians
 async function mintERA(
   walletContract: WalletContract,
@@ -220,8 +237,8 @@ export async function postDeployTest(
   contractAddress: Address
 ) {
   // await mintERA(walletContract, secretKey, contractAddress, 1);
-  // await mintHistopians(walletContract, secretKey, contractAddress, 6);
-  await emptyCollection(walletContract, secretKey);
+  await mintHistopians(walletContract, secretKey, contractAddress, 1);
+  // await emptyCollection(walletContract, secretKey);
   // const call = await walletContract.client.callGetMethod(contractAddress, "get_jetton_data");
   //
   // console.log(
@@ -231,6 +248,6 @@ export async function postDeployTest(
   // );
   //mint ERA
 
-
+  // await mintFreeHistopian(walletContract, secretKey, contractAddress);
 
 }

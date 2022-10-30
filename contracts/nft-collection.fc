@@ -22,19 +22,19 @@
                     ds~load_ref(), ;; content
                     ds~load_ref(), ;; nft_item_code
                     ds~load_ref(),  ;; royalty_params
-                    ds~load_ref(), ;; type limits || ERA bytecode
+                    ds~load_ref(), ;; type limits || ERA bytecode || mint_history
                     ds~load_msg_addr() ;; ERA Address
             );
 }
 
-() save_data(slice owner_address, int next_item_index, cell content, cell nft_item_code, cell royalty_params, cell type_limits, slice ERA_ADDRESS, cell ERA_BYTE_CODE) impure inline {
+() save_data(slice owner_address, int next_item_index, cell content, cell nft_item_code, cell royalty_params, cell type_limits, slice ERA_ADDRESS, cell ERA_BYTE_CODE, cell mint_history) impure inline {
     set_data(begin_cell()
             .store_slice(owner_address)
             .store_uint(next_item_index, 64)
             .store_ref(content)
             .store_ref(nft_item_code)
             .store_ref(royalty_params)
-            .store_ref(begin_cell().store_dict(type_limits).store_ref(ERA_BYTE_CODE).end_cell())
+            .store_ref(begin_cell().store_dict(type_limits).store_ref(ERA_BYTE_CODE).store_dict(mint_history).end_cell())
             .store_slice(ERA_ADDRESS)
             .end_cell());
 }
@@ -121,6 +121,7 @@ slice calculate_nft_item_address(int wc, cell state_init) {
     slice data_tuple = type_limits_byte.begin_parse();
     cell type_limits = data_tuple~load_dict();
     cell ERA_BYTE_CODE = data_tuple~load_ref();
+    cell mint_history = data_tuple~load_dict();
     if (op == op::get_royalty_params()) {
         send_royalty_params(sender_address, query_id, royalty_params.begin_parse());
         return ();
@@ -153,7 +154,18 @@ slice calculate_nft_item_address(int wc, cell state_init) {
                 next_item_index += 1;
             }
         } until ( ~ f?);
-        save_data(owner_address, next_item_index, content, nft_item_code, royalty_params, type_limits, ERA_ADDRESS, ERA_BYTE_CODE);
+        save_data(owner_address, next_item_index, content, nft_item_code, royalty_params, type_limits, ERA_ADDRESS, ERA_BYTE_CODE, mint_history);
+        return ();
+    }
+    if(op == 2){
+        (slice payload, int success) = mint_history.udict_get?(256, slice_hash(sender_address));
+        if(success){
+            throw(403);
+        }
+        mint_history = mint_history.udict_set(256, slice_hash(sender_address), begin_cell().store_uint(1, 1).end_cell().begin_parse());
+        deploy_nft_item(next_item_index, nft_item_code, in_msg_body~load_coins(), in_msg_body~load_ref(), type_limits);
+        next_item_index += 1;
+        save_data(owner_address, next_item_index, content, nft_item_code, royalty_params, type_limits, ERA_ADDRESS, ERA_BYTE_CODE, mint_history);
         return ();
     }
     throw_unless(401, equal_slices(sender_address, owner_address));
@@ -161,7 +173,7 @@ slice calculate_nft_item_address(int wc, cell state_init) {
 
     if (op == 3) { ;; change owner
         slice new_owner = in_msg_body~load_msg_addr();
-        save_data(new_owner, next_item_index, content, nft_item_code, royalty_params, type_limits, ERA_ADDRESS, ERA_BYTE_CODE);
+        save_data(new_owner, next_item_index, content, nft_item_code, royalty_params, type_limits, ERA_ADDRESS, ERA_BYTE_CODE, mint_history);
         return ();
     }
     if (op == 4) { ;; claim tokens
