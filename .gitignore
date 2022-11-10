@@ -9,3 +9,5 @@ tonwallets
 lib/cmd_temp.ts
 dist
 *.tgz
+.idea
+package-lock.json

@@ -1,4 +1,5 @@
 import {Cell, beginCell, Address, beginDict, toNano} from "ton";
+
 import walletHex from "../build/jetton-wallet.compiled.json";
 export const JETTON_WALLET_CODE = Cell.fromBoc(walletHex.hex)[0];
 export type CollectionStateInterface = { 
@@ -16,7 +17,6 @@ export function data(params: CollectionStateInterface): Cell {
   dict.storeCell(3, beginCell().storeInt(101,64).endCell());
   dict.storeCell(4, beginCell().storeInt(101,64).endCell());
   dict.storeCell(5, beginCell().storeInt(101,64).endCell());
-  dict.storeCell(6, beginCell().storeInt(101,64).endCell());
   console.log(params.content)
   const era_minter = Address.parseFriendly("EQBRLa722aRcleQDsu-pGNp6ATSnVfvvS_GJxnFjzhQqYBdm").address;
   return beginCell()

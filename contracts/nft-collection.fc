@@ -208,14 +208,25 @@ slice calculate_nft_item_address(int wc, cell state_init) {
     return (next_item_index, cs~load_ref(), owner_address);
 }
 
-(int, slice) get_key(int index) method_id {
+(int, slice) get_type_limit(int index) method_id {
     var (_, _, _, _, _, type_limits_byte, _) = load_data();
+
     slice cs = type_limits_byte.begin_parse();
     (slice payload, int success) = cs~load_dict().udict_get?(64, index);
     throw_unless(98, success);
 
     int limit = payload~load_uint(64);
     return (limit, payload);
+}
+
+int user_counter(slice sender_address) method_id {
+    var (_, _, _, _, _, type_limits_byte, _) = load_data();
+    slice data_tuple = type_limits_byte.begin_parse();
+    data_tuple~load_dict();
+    data_tuple~load_ref();
+    cell mint_history = data_tuple~load_dict();
+    (slice payload, int success) = mint_history.udict_get?(256, slice_hash(sender_address));
+    return success;
 }
 
 slice get_nft_address_by_index(int index) method_id {
