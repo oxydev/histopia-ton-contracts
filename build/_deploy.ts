@@ -67,6 +67,7 @@ async function main() {
   const rootContracts = glob.sync(["build/*.deploy.ts"]);
   for (const rootContract of rootContracts) {
     // deploy a new root contract
+      if(rootContract.includes("jetton")) continue
     console.log(`\n* Found root contract '${rootContract} - let's deploy it':`);
     const contractName = path.parse(path.parse(rootContract).name).name;
 

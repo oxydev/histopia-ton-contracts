@@ -80,6 +80,7 @@ slice calculate_nft_item_address(int wc, cell state_init) {
                     begin_cell()
                             .store_slice(address_owner_slice~load_msg_addr())
                             .store_ref(type_limits)
+                            .store_ref(nft_item_code)
                             .store_ref(
                                     begin_cell()
                                             .store_uint(value, len * 8)

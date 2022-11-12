@@ -7,3 +7,7 @@ int op::get_royalty_params() asm "0x693d3950 PUSHINT";
 int op::report_royalty_params() asm "0xa8cb00ad PUSHINT";
 int op::transfer_notification() asm "0x7362d09c PUSHINT";
 int op::transfer_ERA() asm "0xf8a7ea5 PUSHINT";
+int op::lock() asm "100 PUSHINT";
+int op::lock_nft() asm "101 PUSHINT";
+int op::withdraw() asm "102 PUSHINT";
+int op::harvest() asm "103 PUSHINT";

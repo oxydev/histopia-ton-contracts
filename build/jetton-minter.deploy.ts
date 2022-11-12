@@ -10,7 +10,6 @@ import {createTestClient} from "ton/dist/tests/createTestClient";
 export const JETTON_WALLET_CODE = Cell.fromBoc(walletHex.hex)[0];
 export const JETTON_MINTER_CODE = Cell.fromBoc(minterHex.hex)[0]; // code cell from build output
 const DEPLOYER_WALLET_ADDRESS = "EQBmVo--5CGcB1YdclgIUvUY-949a0ivzC1Cw9_J3l7ayxnT";
-const HistopianNFTAddress = Address.parseFriendly("EQAuwNUXU-JkEJEzD7q18ujIBH6MPkM3rcy0PucipH94YT2X").address;
 
 const ONCHAIN_CONTENT_PREFIX = 0x00;
 const SNAKE_PREFIX = 0x00;
@@ -27,6 +26,7 @@ const jettonParams = {
 };
 
 export type JettonMetaDataKeys = "name" | "description" | "image" | "symbol";
+export const NFTPriceInEraTON = 10 ** 7
 
 const jettonOnChainMetadataSpec: {
   [key in JettonMetaDataKeys]: "utf8" | "ascii" | undefined;
@@ -154,7 +154,7 @@ const serializeUri = (uri: string) => {
 
 
 // multiple mint Histopians
-async function mintHistopians(
+export async function mintHistopians(
   walletContract: WalletContract,
   secretKey: Buffer,
   contractAddress: Address,
@@ -164,24 +164,27 @@ async function mintHistopians(
   const JettonWallet = Address.parseFriendly("kQC6lw8g6E2j8koYFRQL55gbT_k8VyEUz94cbGlN25weqHVs").address;
 
 
-  const dict = beginDict(64);
-  for (let i = 0; i < amount; i++) {
-    const nftInfoCell = beginCell().storeCoins(toNano(0.03))
-      .storeRef(beginCell().storeAddress(toAddress).endCell()).endCell();
-    dict.storeCell(i,nftInfoCell);
+    const dict = beginDict(64);
+    for (let i = 0; i < amount; i++) {
+        const nftInfoCell = beginCell().storeCoins(toNano(0.03))
+            .storeRef(beginCell()
+                .storeAddress(toAddress)
+                .endCell()
+            ).endCell();
+        dict.storeCell(i, nftInfoCell);
+    }
+    // dict.storeCell(2,nftInfoCell);
+    const payload = beginCell().storeUint(0xf8a7ea5, 32).storeUint(0, 64)
+        .storeCoins(NFTPriceInEraTON * amount).storeAddress(contractAddress).storeAddress(toAddress).storeBit(false)
+        .storeCoins(toNano((0.015 + 0.04 * amount).toFixed(9))).storeRefMaybe(dict.endDict()).endCell();
 
-  }
-  // dict.storeCell(2,nftInfoCell);
-  const transferRef = beginCell().storeUint(0xf8a7ea5, 32).storeUint(0,64)
-    .storeCoins(toNano(0.01 * amount)).storeAddress(HistopianNFTAddress).storeAddress(null).storeBit(false)
-    .storeCoins(toNano((0.025 + 0.03 * amount))).storeRefMaybe(dict.endDict()).endCell();
-  await sendInternalMessageWithWallet({ walletContract, secretKey, to: JettonWallet, value: toNano((0.075 + 0.03 * amount).toFixed(8)), body: transferRef })
+  await sendInternalMessageWithWallet({ walletContract, secretKey, to: JettonWallet, value: toNano((0.055 + 0.04 * amount).toFixed(8)), body: payload })
     .then((r) => console.log(r,`   # Sent 'deployNFT' op message`)).catch(e => console.log(e));
 
 }
 
 // mint free
-async function mintFreeHistopian(
+export async function mintFreeHistopian(
   walletContract: WalletContract,
   secretKey: Buffer,
   contractAddress: Address,
@@ -192,13 +195,13 @@ async function mintFreeHistopian(
     .storeCoins(toNano(0.04))
     .storeRef(beginCell().storeAddress(toAddress).endCell()).endCell();
 
-  await sendInternalMessageWithWallet({ walletContract, secretKey, to: HistopianNFTAddress, value: toNano((0.08).toFixed(8)), body: transferRef })
+  await sendInternalMessageWithWallet({ walletContract, secretKey, to: contractAddress, value: toNano((0.05).toFixed(8)), body: transferRef })
     .then((r) => console.log(r,`   # Sent 'deployNFT' op message`)).catch(e => console.log(e));
 
 }
 
 // multiple mint Histopians
-async function mintERA(
+export async function mintERA(
   walletContract: WalletContract,
   secretKey: Buffer,
   contractAddress: Address,
@@ -220,12 +223,13 @@ async function mintERA(
 async function emptyCollection(
   walletContract: WalletContract,
   secretKey: Buffer,
+    contractAddress: Address,
 ) {
 
   const transferRef = beginCell().storeUint(4, 32).storeUint(0,64)
     .storeCoins(toNano(0.04)).storeCoins(toNano(0.05)).storeAddress(null).endCell();
 
-  await sendInternalMessageWithWallet({ walletContract, secretKey, to: HistopianNFTAddress, value: toNano(0.06), body: transferRef })
+  await sendInternalMessageWithWallet({ walletContract, secretKey, to: contractAddress, value: toNano(0.06), body: transferRef })
     .then((r) => console.log(r,`   # Sent 'deployNFT' op message`)).catch(e => console.log(e));
 
 }
@@ -237,7 +241,7 @@ export async function postDeployTest(
   contractAddress: Address
 ) {
   // await mintERA(walletContract, secretKey, contractAddress, 1);
-  await mintHistopians(walletContract, secretKey, contractAddress, 1);
+  // await mintHistopians(walletContract, secretKey, contractAddress, 1);
   // await emptyCollection(walletContract, secretKey);
   // const call = await walletContract.client.callGetMethod(contractAddress, "get_jetton_data");
   //

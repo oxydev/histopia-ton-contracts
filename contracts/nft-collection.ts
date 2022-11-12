@@ -13,10 +13,10 @@ export type CollectionStateInterface = {
 export function data(params: CollectionStateInterface): Cell {
   var dict = beginDict(64);
   dict.storeCell(1, beginCell().storeUint(100, 64).endCell());
-  dict.storeCell(2, beginCell().storeInt(101,64).endCell());
-  dict.storeCell(3, beginCell().storeInt(101,64).endCell());
-  dict.storeCell(4, beginCell().storeInt(101,64).endCell());
-  dict.storeCell(5, beginCell().storeInt(101,64).endCell());
+  dict.storeCell(2, beginCell().storeInt(100,64).endCell());
+  dict.storeCell(3, beginCell().storeInt(100,64).endCell());
+  dict.storeCell(4, beginCell().storeInt(100,64).endCell());
+  dict.storeCell(5, beginCell().storeInt(100,64).endCell());
   console.log(params.content)
   const era_minter = Address.parseFriendly("EQBRLa722aRcleQDsu-pGNp6ATSnVfvvS_GJxnFjzhQqYBdm").address;
   return beginCell()

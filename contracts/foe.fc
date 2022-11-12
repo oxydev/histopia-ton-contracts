@@ -1,0 +1,288 @@
+#pragma version >=0.2.0;
+
+#include "imports/stdlib.fc";
+#include "imports/params.fc";
+#include "imports/op-codes-nft.fc";
+#include "imports/jetton-utils.fc";
+;; NFT collection smart contract
+
+(cell, cell, cell) load_data() inline {
+    var ds = get_data().begin_parse();
+    return (ds~load_ref(), ;; jetton and nft data (jetton minter address, collection address, nft item code)
+            ds~load_ref(), ;; foe general number(eraPerSecond, lastRewardTime, generalAccEraPerShare, currentTotalMilitaryPower)
+            ds~load_ref() ;; nfts mapping (nftId => (militaryPower, owner address))
+    );
+}
+
+(slice, slice, cell, int, int, int, int, cell) unpack_data(cell jetton_nft_data, cell general_stats, cell nft_data) inline {
+    slice ds = jetton_nft_data.begin_parse();
+    slice jetton_minter_address = ds~load_msg_addr();
+    slice collection_address = ds~load_msg_addr();
+    cell nft_item_code = ds~load_ref();
+
+    slice general_stats_ds = general_stats.begin_parse();
+    int eraPerSecond = general_stats_ds~load_uint(64);
+    int lastRewardTime = general_stats_ds~load_uint(64);
+    int generalAccEraPerShare = general_stats_ds~load_uint(64);
+    int currentTotalMilitaryPower = general_stats_ds~load_uint(64);
+
+    slice nft_data_ds = nft_data.begin_parse();
+    cell nft_mapping = nft_data_ds~load_dict();
+
+    return (jetton_minter_address, collection_address, nft_item_code, eraPerSecond, lastRewardTime, generalAccEraPerShare, currentTotalMilitaryPower, nft_mapping);
+}
+
+() save_data(cell jetton_nft_data, cell general_stats, cell nft_data) impure inline {
+    set_data(
+            begin_cell()
+                    .store_ref(jetton_nft_data)
+                    .store_ref(general_stats)
+                    .store_ref(nft_data)
+                    .end_cell()
+    );
+}
+
+(cell, cell, cell) pack_data(slice jetton_minter_address,
+        slice collection_address, cell nft_item_code,
+        int eraPerSecond, int lastRewardTime, int generalAccEraPerShare, int currentTotalMilitaryPower,
+        cell nft_mapping) inline {
+    cell jetton_nft = begin_cell()
+            .store_slice(jetton_minter_address)
+            .store_slice(collection_address)
+            .store_ref(nft_item_code)
+            .end_cell();
+
+    cell general_stats = begin_cell()
+            .store_uint(eraPerSecond, 64)
+            .store_uint(lastRewardTime, 64)
+            .store_uint(generalAccEraPerShare, 64)
+            .store_uint(currentTotalMilitaryPower, 64)
+            .end_cell();
+
+    cell nft_data = begin_cell()
+            .store_dict(nft_mapping)
+            .end_cell();
+    return (jetton_nft, general_stats, nft_data);
+}
+
+cell calculate_nft_item_state_init(int item_index, slice nft_collection, cell nft_item_code) {
+    cell data = begin_cell().store_uint(item_index, 64).store_slice(nft_collection).end_cell();
+    return begin_cell().store_uint(0, 2).store_dict(nft_item_code).store_dict(data).store_uint(0, 1).end_cell();
+}
+
+slice calculate_nft_item_address(int wc, cell state_init) {
+    return begin_cell().store_uint(4, 3)
+            .store_int(wc, 8)
+            .store_uint(cell_hash(state_init), 256)
+            .end_cell()
+            .begin_parse();
+}
+
+
+() update_pool() impure inline {
+    var (jetton_nft, general_stats, nft_data) = load_data();
+    var (jetton_minter_address, collection_address,
+            nft_item_code, eraPerSecond, lastRewardTime, generalAccEraPerShare,
+            currentTotalMilitaryPower, nft_mapping) = unpack_data(jetton_nft, general_stats, nft_data);
+    if (now() <= lastRewardTime) {
+        return ();
+    }
+    if (currentTotalMilitaryPower == 0) {
+        lastRewardTime = now();
+        save_data(pack_data(jetton_minter_address, collection_address, nft_item_code, eraPerSecond, lastRewardTime, generalAccEraPerShare, currentTotalMilitaryPower, nft_mapping));
+        return ();
+    }
+    int multiplier = now() - lastRewardTime;
+    var era_reward = multiplier * eraPerSecond;
+    generalAccEraPerShare += era_reward * 1000000000000 / currentTotalMilitaryPower;
+    lastRewardTime = now();
+    save_data(pack_data(jetton_minter_address, collection_address, nft_item_code, eraPerSecond, lastRewardTime, generalAccEraPerShare, currentTotalMilitaryPower, nft_mapping));
+}
+
+
+() deposit(int token_id, slice owner_address, int token_militaryPower) impure inline {
+    update_pool();
+    var (jetton_nft, general_stats, nft_data) = load_data();
+    var (jetton_minter_address, collection_address,
+            nft_item_code, eraPerSecond, lastRewardTime, generalAccEraPerShare,
+            currentTotalMilitaryPower, nft_mapping) = unpack_data(jetton_nft, general_stats, nft_data);
+    currentTotalMilitaryPower += token_militaryPower;
+    int reward_debt = token_militaryPower * generalAccEraPerShare / 1000000000000;
+    nft_mapping~udict_set(64, token_id, begin_cell()
+            .store_uint(token_militaryPower, 64)
+            .store_uint(reward_debt, 64)
+            .store_slice(owner_address).end_cell().begin_parse());
+
+    save_data(pack_data(jetton_minter_address, collection_address, nft_item_code, eraPerSecond, lastRewardTime, generalAccEraPerShare, currentTotalMilitaryPower, nft_mapping));
+
+}
+
+() withdraw(cell token_ids) impure inline {
+    update_pool();
+    var (jetton_nft, general_stats, nft_data) = load_data();
+    var (jetton_minter_address, collection_address,
+            nft_item_code, eraPerSecond, lastRewardTime, generalAccEraPerShare,
+            currentTotalMilitaryPower, nft_mapping) = unpack_data(jetton_nft, general_stats, nft_data);
+    int pending = 0;
+    int sum_militry = 0;
+    var key = -1;
+    slice owner_nft = null();
+    do {
+        (key, slice nft_data, int f) = token_ids.udict_get_next?(64, key);
+        if (f) {
+            int token_id = nft_data~load_uint(64);
+            (slice payload, int success) = nft_mapping.udict_get?(token_id, 64);
+            throw_unless(100 + token_id, success);
+            var militaryPower = payload~load_uint(64);
+            sum_militry += militaryPower;
+            var reward_debt = payload~load_uint(64);
+            slice owner = payload~load_msg_addr();
+            pending += (militaryPower * generalAccEraPerShare / 1000000000000) - reward_debt; ;; 1000000000000 = 10^12
+            if(equal_slices(owner_nft, null())) {
+                owner_nft = owner;
+            }
+            throw_unless(99, equal_slices(owner_nft, owner));
+        }
+    } until (~ f);
+    ;; todo mint pending era to owner_nft
+    currentTotalMilitaryPower -= sum_militry;
+    key = -1;
+    do {
+        (key, slice nft_data, int f) = token_ids.udict_get_next?(64, key);
+        if (f) {
+            int token_id = nft_data~load_uint(64);
+            ;; todo transfer token_id to owner_nft
+
+            nft_mapping~udict_delete?(64, token_id);
+        }
+    } until (~ f);
+
+    save_data(pack_data(jetton_minter_address, collection_address, nft_item_code, eraPerSecond, lastRewardTime, generalAccEraPerShare, currentTotalMilitaryPower, nft_mapping));
+
+}
+
+() harvest(cell token_ids) impure inline {
+    update_pool();
+    var (jetton_nft, general_stats, nft_data) = load_data();
+    var (jetton_minter_address, collection_address,
+            nft_item_code, eraPerSecond, lastRewardTime, generalAccEraPerShare,
+            currentTotalMilitaryPower, nft_mapping) = unpack_data(jetton_nft, general_stats, nft_data);
+    int pending = 0;
+    var key = -1;
+    slice owner_nft = null();
+    do {
+        (key, slice nft_data, int f) = token_ids.udict_get_next?(64, key);
+        if (f) {
+            int token_id = nft_data~load_uint(64);
+            (slice payload, int success) = nft_mapping.udict_get?(token_id, 64);
+            throw_unless(100 + token_id, success);
+            var militaryPower = payload~load_uint(64);
+            var reward_debt = payload~load_uint(64);
+            slice owner = payload~load_msg_addr();
+            pending += (militaryPower * generalAccEraPerShare / 1000000000000) - reward_debt; ;; 1000000000000 = 10^12
+            if(equal_slices(owner_nft, null())) {
+                owner_nft = owner;
+            }
+            throw_unless(99, equal_slices(owner_nft, owner));
+        }
+    } until (~ f);
+    ;; todo mint pending era to owner_nft
+
+    key = -1;
+    do {
+        (key, slice nft_data, int f) = token_ids.udict_get_next?(64, key);
+        if (f) {
+            int token_id = nft_data~load_uint(64);
+            (slice payload, int success) = nft_mapping.udict_get?(token_id, 64);
+            var militaryPower = payload~load_uint(64);
+            var reward_debt = payload~load_uint(64);
+            slice owner = payload~load_msg_addr();
+            nft_mapping~udict_set(64, token_id, begin_cell()
+                    .store_uint(militaryPower, 64)
+                    .store_uint(militaryPower * generalAccEraPerShare / 1000000000000, 64)
+                    .store_slice(owner).end_cell().begin_parse());
+        }
+    } until (~ f);
+    save_data(pack_data(jetton_minter_address, collection_address, nft_item_code, eraPerSecond, lastRewardTime, generalAccEraPerShare, currentTotalMilitaryPower, nft_mapping));
+
+}
+() recv_internal(cell in_msg_full, slice in_msg_body) impure {
+    if (in_msg_body.slice_empty?()) { ;; ignore empty messages
+        return ();
+    }
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+
+    if (flags & 1) { ;; ignore all bounced messages
+        return ();
+    }
+    slice sender_address = cs~load_msg_addr();
+
+    int op = in_msg_body~load_uint(32);
+    int query_id = in_msg_body~load_uint(64);
+
+    if(op == op::lock_nft()) {
+        var (jetton_nft, general_stats, nft_data) = load_data();
+        slice ds = jetton_nft.begin_parse();
+        ds~load_msg_addr();
+        slice collection_address = ds~load_msg_addr();
+        cell nft_item_code = ds~load_ref();
+
+        int token_id = in_msg_body~load_uint(64);
+        slice owner = in_msg_body~load_msg_addr();
+        int militaryPower = in_msg_body~load_uint(64);
+        cell state_init = calculate_nft_item_state_init(token_id, collection_address, nft_item_code);
+        slice nft_index_address = calculate_nft_item_address(workchain(), state_init);
+        throw_unless(201, equal_slices(sender_address, nft_index_address));
+        deposit(token_id, owner, militaryPower);
+        return ();
+    }
+
+    if(op == op::withdraw()) {
+        withdraw(in_msg_body~load_ref());
+        return ();
+    }
+
+    if(op == op::harvest()) {
+        harvest(in_msg_body~load_ref());
+        return ();
+    }
+
+    throw(0xffff);
+}
+
+;; Get methods
+
+int pending_era(cell token_ids) method_id {
+    var (jetton_nft, general_stats, nft_data) = load_data();
+    var (jetton_minter_address, collection_address,
+            nft_item_code, eraPerSecond, lastRewardTime, generalAccEraPerShare,
+            currentTotalMilitaryPower, nft_mapping) = unpack_data(jetton_nft, general_stats, nft_data);
+    int accEraPerShare = generalAccEraPerShare;
+    int militaryRate = currentTotalMilitaryPower;
+    if (now() > lastRewardTime) {
+        if(militaryRate != 0) {
+            int multiplier = now() - lastRewardTime;
+            int eraReward = multiplier * eraPerSecond;
+            accEraPerShare += (eraReward * 1000000000000) / militaryRate;
+        }
+    }
+    int pending = 0;
+    int key = -1;
+    do {
+        (key, slice nft_data, int f) = token_ids.udict_get_next?(64, key);
+        if (f) {
+            int nft_id = nft_data~load_uint(64);
+            (slice payload, int success) = nft_mapping.udict_get?(nft_id, 64);
+            if(success) {
+                var militaryPower = payload~load_uint(64);
+                var reward_debt = payload~load_uint(64);
+                pending += (militaryPower * accEraPerShare / 1000000000000) - reward_debt; ;; 1000000000000 = 10^12
+            }
+
+        }
+    } until (~ f);
+
+    return pending;
+
+}
